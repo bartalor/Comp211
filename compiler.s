@@ -52,10 +52,12 @@
 
 %define CLOSURE_CODE CDR
 
-%define PVAR(n) qword [rbp+(4+n)*WORD_SIZE]
 
-; returns %2 allocated bytes in register %1
-; Supports using with %1 = %2
+
+
+
+
+
 %macro MALLOC 2
 	add qword [malloc_pointer], %2
 	push %2
@@ -64,18 +66,14 @@
 	add rsp, 8
 %endmacro
 	
-; Creates a short SOB with the
-; value %2
-; Returns the result in register %1
+
 %macro MAKE_CHAR_VALUE 2
 	MALLOC %1, 1+TYPE_SIZE
 	mov byte [%1], T_CHAR
 	mov byte [%1+TYPE_SIZE], %2
 %endmacro
 
-; Creates a long SOB with the
-; value %2 and type %3.
-; Returns the result in register %1
+
 %macro MAKE_LONG_VALUE 3
 	MALLOC %1, TYPE_SIZE+WORD_SIZE
 	mov byte [%1], %3
@@ -85,9 +83,7 @@
 %define MAKE_FLOAT(r,val) MAKE_LONG_VALUE r, val, T_FLOAT
 %define MAKE_CHAR(r,val) MAKE_CHAR_VALUE r, val
 
-; Create a string of length %2
-; from char %3.
-; Stores result in register %1
+
 %macro MAKE_STRING 3
 	lea %1, [%2+WORD_SIZE+TYPE_SIZE]
 	MALLOC %1, %1
@@ -107,9 +103,7 @@
 	sub %1, WORD_SIZE+TYPE_SIZE
 %endmacro
 
-;;; Creates a SOB with tag %2 
-;;; from two pointers %3 and %4
-;;; Stores result in register %1
+
 %macro MAKE_TWO_WORDS 4 
         MALLOC %1, TYPE_SIZE+WORD_SIZE*2
         mov byte [%1], %2
@@ -123,21 +117,64 @@
         dq %3
 %endmacro
 
-%define MAKE_RATIONAL(r, num, den) \
-	MAKE_TWO_WORDS r, T_RATIONAL, num, den
+%define MAKE_RATIONAL(r, num, den) MAKE_TWO_WORDS r, T_RATIONAL, num, den
 
-%define MAKE_LITERAL_RATIONAL(num, den) \
-	MAKE_WORDS_LIT T_RATIONAL, num, den
-	
-%define MAKE_PAIR(r, car, cdr) \
-        MAKE_TWO_WORDS r, T_PAIR, car, cdr
+%define MAKE_LITERAL_RATIONAL(num, den) MAKE_WORDS_LIT T_RATIONAL, num, den
 
-%define MAKE_LITERAL_PAIR(car, cdr) \
-        MAKE_WORDS_LIT T_PAIR, car, cdr
+%define MAKE_PAIR(r, car, cdr) MAKE_TWO_WORDS r, T_PAIR, car, cdr
 
-%define MAKE_CLOSURE(r, env, body) \
-        MAKE_TWO_WORDS r, T_CLOSURE, env, body
+%define MAKE_LITERAL_PAIR(car, cdr) MAKE_WORDS_LIT T_PAIR, car, cdr
 
+%define MAKE_CLOSURE(r, env, body) MAKE_TWO_WORDS r, T_CLOSURE, env, body
+
+; personal stuff:
+%macro MAKE_LITERAL 2 
+	db %1			  
+	%2
+%endmacro
+
+%macro START_OF_ARGS_BEFORE_PUSH_RBP 1
+	mov %1, ARGC_BEFORE_PUSH_RBP			
+	add %1, 2	
+%endmacro 
+
+%define FROM(x,i) [x + WORD_SIZE*i]
+
+%define RET_ADDR FROM(rbp,1)
+  
+%define CUR_ENV FROM(rbp,2)
+
+%define CUR_ARGC FROM(rbp,3)
+
+%define ARGC_BEFORE_PUSH_RBP FROM(rsp,2)
+
+%define PVAR(n) FROM(rbp,(4+n))
+
+%define BVAR(env_rbp,n) FROM(env_rbp,(4+n))
+
+
+%define MAKE_NIL db T_NIL
+
+%define MAKE_VOID db T_VOID
+
+%define MAKE_LITERAL_CHAR(x) MAKE_LITERAL T_CHAR, db x
+
+%define MAKE_LITERAL_BOOL(x) MAKE_LITERAL T_BOOL,db x  
+
+%define MAKE_LITERAL_FLOAT(x) MAKE_LITERAL T_FLOAT, dq x
+
+%macro MAKE_LITERAL_STRING 1+
+	db T_STRING
+	dq (%%end_str -%%str)
+	%%str:
+		db %1
+	%%end_str:
+%endmacro
+
+%define MAKE_LITERAL_SYMBOL(x) MAKE_LITERAL T_SYMBOL, dq x 
+
+
+;;-------------------------------------------------------------------
 	
 ;;; Macros and routines for printing Scheme OBjects to STDOUT
 %define CHAR_NUL 0
@@ -328,7 +365,7 @@ write_sob_bool:
 	je .sobFalse
 	
 	mov rdi, .true
-	jmp .continue
+jmp .continue
 
 .sobFalse:
 	mov rdi, .false
